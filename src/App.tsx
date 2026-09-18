@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { DataProvider, useData } from './context/DataContext';
 import { Header } from './components/common/Header';
 import { BottomNav, NavTab } from './components/layout/BottomNav';
 import { TeacherHome } from './components/teacher/TeacherHome';
@@ -10,14 +11,16 @@ import { PersonalReport } from './components/teacher/PersonalReport';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { UserProfile } from './components/profile/UserProfile';
 import { BorrowDetailModal } from './components/teacher/BorrowDetailModal';
+import { Login } from './components/common/Login';
 import { BorrowRecord } from './types';
 
 const MainContent: React.FC = () => {
-  const { actor, role } = useAuth();
+  const { actor, isInitializing } = useAuth();
+  const { loading, error, refreshData } = useData();
   const [currentTab, setCurrentTab] = useState<NavTab | 'report'>('home');
   const [receiptSlip, setReceiptSlip] = useState<BorrowRecord | null>(null);
 
-  if (!actor) {
+  if (isInitializing) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 text-center">
         <div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full mx-auto mb-3" />
@@ -26,14 +29,38 @@ const MainContent: React.FC = () => {
     );
   }
 
+  if (!actor) {
+    return <Login />;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 text-center">
+        <div className="animate-spin w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full mx-auto mb-3" />
+        <p className="text-xs text-slate-400">Đang tải dữ liệu từ máy chủ...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4 text-center">
+        <div className="text-red-500 mb-4 text-4xl">⚠️</div>
+        <p className="text-sm text-red-400 mb-4 font-semibold">{error}</p>
+        <button 
+          onClick={refreshData}
+          className="px-4 py-2 bg-amber-500 text-slate-900 rounded font-bold"
+        >
+          Thử lại
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-amber-500 selection:text-slate-950">
-      {/* Header */}
       <Header />
-
-      {/* Main viewport container (Mobile 360-430px first, max-w-md centered) */}
       <main className="flex-1 w-full max-w-md mx-auto px-4 pt-3">
-        {/* VIEW: HOME */}
         {currentTab === 'home' && (
           <TeacherHome
             onGoToBorrow={() => setCurrentTab('borrow')}
@@ -42,27 +69,17 @@ const MainContent: React.FC = () => {
             onGoToReport={() => setCurrentTab('report')}
           />
         )}
-
-        {/* VIEW: BORROW WIZARD */}
         {currentTab === 'borrow' && (
           <BorrowWizard
             onFinish={slip => {
-              if (slip) {
-                setReceiptSlip(slip);
-              }
+              if (slip) setReceiptSlip(slip);
               setCurrentTab('active');
             }}
             onCancel={() => setCurrentTab('home')}
           />
         )}
-
-        {/* VIEW: ACTIVE BORROWS & RETURN */}
         {currentTab === 'active' && <ActiveBorrowReturn />}
-
-        {/* VIEW: BORROW HISTORY */}
         {currentTab === 'history' && <BorrowHistory />}
-
-        {/* VIEW: PERSONAL REPORT */}
         {currentTab === 'report' && (
           <div>
             <div className="mb-2">
@@ -76,15 +93,10 @@ const MainContent: React.FC = () => {
             <PersonalReport />
           </div>
         )}
-
-        {/* VIEW: ADMIN DASHBOARD */}
         {currentTab === 'admin' && <AdminDashboard />}
-
-        {/* VIEW: USER PROFILE */}
         {currentTab === 'profile' && <UserProfile />}
       </main>
 
-      {/* Slip Detail Modal when returning from Wizard */}
       {receiptSlip && (
         <BorrowDetailModal
           borrow={receiptSlip}
@@ -93,7 +105,6 @@ const MainContent: React.FC = () => {
         />
       )}
 
-      {/* Bottom Navigation */}
       <BottomNav
         activeTab={currentTab === 'report' ? 'home' : (currentTab as NavTab)}
         onChangeTab={tab => {
@@ -108,7 +119,9 @@ const MainContent: React.FC = () => {
 export default function App() {
   return (
     <AuthProvider>
-      <MainContent />
+      <DataProvider>
+        <MainContent />
+      </DataProvider>
     </AuthProvider>
   );
 }

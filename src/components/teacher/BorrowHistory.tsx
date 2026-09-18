@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { localEngine } from '../../services/api';
+import { useData } from '../../context/DataContext';
+import { isBorrowOverdue, calculateDuration } from '../../services/api';
 import { BorrowRecord, BorrowStatus } from '../../types';
 import {
   ClipboardList,
@@ -16,26 +17,31 @@ import {
 import { BorrowDetailModal } from './BorrowDetailModal';
 
 export const BorrowHistory: React.FC = () => {
-  const { actor, refreshTrigger } = useAuth();
+  const { actor } = useAuth();
+  const { rooms, dashboardData } = useData();
   const [selectedBorrow, setSelectedBorrow] = useState<BorrowRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
-  if (!actor) return null;
+  if (!actor || !dashboardData) return null;
 
   const allRecords = useMemo(() => {
-    const records = localEngine.getBorrowRecords()
-      .filter(r => r.teacher_id === actor.teacher_id)
-      .sort((a, b) => b.borrowed_at.localeCompare(a.borrowed_at));
-    return records.map(r => localEngine.decorateBorrowRecord(r, actor));
-  }, [actor, refreshTrigger]);
+    const records = dashboardData.all_records || [];
+    return records.map((r: any) => {
+      const items = r.items || [];
+      const total = items.reduce((acc: number, cur: any) => acc + Number(cur.quantity), 0);
+      return {
+        ...r,
+        overdue: isBorrowOverdue(r),
+        duration_label: calculateDuration(r.borrowed_at, r.returned_at).label,
+        total_quantity: total,
+      };
+    }).sort((a: any, b: any) => b.borrowed_at.localeCompare(a.borrowed_at));
+  }, [dashboardData]);
 
   const filteredRecords = useMemo(() => {
-    return allRecords.filter(r => {
-      // Status filter
+    return allRecords.filter((r: any) => {
       if (statusFilter !== 'ALL' && r.status !== statusFilter) return false;
-
-      // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchId = r.borrow_id.toLowerCase().includes(q);
@@ -43,12 +49,9 @@ export const BorrowHistory: React.FC = () => {
         const matchRoom = r.room_id.toLowerCase().includes(q);
         if (!matchId && !matchNote && !matchRoom) return false;
       }
-
       return true;
     });
   }, [allRecords, statusFilter, searchQuery]);
-
-  const rooms = localEngine.getRooms();
 
   return (
     <div className="space-y-4 pb-24 animate-in fade-in duration-200">

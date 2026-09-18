@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { localEngine } from '../../services/api';
+import { useData } from '../../context/DataContext';
+import { ApiService, isBorrowOverdue } from '../../services/api';
 import {
   Shield,
   Layers,
@@ -25,13 +26,13 @@ import {
 import { EquipmentRequest, Equipment, BorrowRecord, Teacher, DiagnosticsResult } from '../../types';
 
 export const AdminDashboard: React.FC = () => {
-  const { actor, role, triggerRefresh, refreshTrigger } = useAuth();
+  const { actor, role } = useAuth();
+  const { rooms, equipment, dashboardData, refreshData } = useData();
 
   const [adminTab, setAdminTab] = useState<
     'overview' | 'approvals' | 'equipment' | 'borrows' | 'permissions' | 'diagnostics'
   >('overview');
 
-  // Toast notification state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -41,103 +42,57 @@ export const AdminDashboard: React.FC = () => {
     }, 3500);
   };
 
-  // Rejection modal
   const [rejectReqId, setRejectReqId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState<string>('');
   const [rejectModalError, setRejectModalError] = useState<string>('');
 
-  // Unlock modal
   const [unlockBorrowId, setUnlockBorrowId] = useState<string | null>(null);
   const [unlockReason, setUnlockReason] = useState<string>('');
   const [unlockModalError, setUnlockModalError] = useState<string>('');
 
-  // Equipment edit modal
   const [editEquipment, setEditEquipment] = useState<Equipment | null>(null);
   const [editModalError, setEditModalError] = useState<string>('');
 
-  // Diagnostics state
   const [diagResult, setDiagResult] = useState<DiagnosticsResult | null>(null);
 
-  // Search & Filters
   const [eqSearch, setEqSearch] = useState('');
   const [eqRoomFilter, setEqRoomFilter] = useState('ALL');
 
-  // Master data
-  const rooms = localEngine.getRooms();
-  const allEquipment = localEngine.getMergedInventory();
-  const allRequests = localEngine.getEquipmentRequests();
-  const allBorrows = localEngine.getBorrowRecords().map(r => localEngine.decorateBorrowRecord(r, actor || undefined));
-  const teachers = localEngine.getTeachers();
+  // Master data from Context
+  const allEquipment = equipment || [];
+  const allRequests: EquipmentRequest[] = []; // Not implemented in V4 GAS yet
+  const allBorrows = (dashboardData?.all_records || []).map((r: any) => ({
+    ...r,
+    overdue: isBorrowOverdue(r),
+  }));
+  const teachers: Teacher[] = []; // Not implemented in V4 GAS yet
 
   // Metrics
-  const totalEquipmentCount = allEquipment.reduce((sum, e) => sum + e.total_quantity, 0);
-  const totalBorrowedCount = allEquipment.reduce((sum, e) => sum + (e.borrowed_quantity || 0), 0);
-  const totalBlockedCount = allEquipment.reduce((sum, e) => sum + e.blocked_quantity, 0);
+  const totalEquipmentCount = allEquipment.reduce((sum, e) => sum + Number(e.total_quantity), 0);
+  const totalBorrowedCount = allEquipment.reduce((sum, e) => sum + Number(e.borrowed_quantity || 0), 0);
+  const totalBlockedCount = allEquipment.reduce((sum, e) => sum + Number(e.blocked_quantity || 0), 0);
   const pendingRequests = allRequests.filter(r => r.status === 'PENDING');
-  const overdueBorrows = allBorrows.filter(r => r.overdue);
+  const overdueBorrows = allBorrows.filter((r: any) => r.overdue);
 
   // Handlers
-  const handleApproveRequest = (requestId: string) => {
-    if (!actor) return;
-    try {
-      localEngine.adminApproveEquipmentRequest(actor, requestId);
-      triggerRefresh();
-      showToast('Đã phê duyệt đề xuất và bổ sung thiết bị vào kho!', 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi khi duyệt', 'error');
-    }
+  const handleApproveRequest = async (requestId: string) => {
+    alert('Tính năng phê duyệt đề xuất đang được di chuyển sang Google Sheets V4 API');
   };
 
-  const handleRejectSubmit = () => {
-    if (!actor || !rejectReqId) return;
-    if (!rejectReason.trim()) {
-      setRejectModalError('Vui lòng nhập lý do từ chối');
-      return;
-    }
-    try {
-      localEngine.adminRejectEquipmentRequest(actor, rejectReqId, rejectReason);
-      setRejectReqId(null);
-      setRejectReason('');
-      setRejectModalError('');
-      triggerRefresh();
-      showToast('Đã từ chối đề xuất thiết bị', 'success');
-    } catch (err: any) {
-      setRejectModalError(err.message || 'Lỗi khi từ chối');
-    }
+  const handleRejectSubmit = async () => {
+    alert('Tính năng từ chối đề xuất đang được di chuyển sang Google Sheets V4 API');
   };
 
-  const handleUnlockSubmit = () => {
-    if (!actor || !unlockBorrowId) return;
-    if (!unlockReason.trim()) {
-      setUnlockModalError('Bắt buộc phải nhập lý do mở khóa');
-      return;
-    }
-    try {
-      localEngine.adminUnlock(actor, unlockBorrowId, unlockReason);
-      setUnlockBorrowId(null);
-      setUnlockReason('');
-      setUnlockModalError('');
-      triggerRefresh();
-      showToast('Đã mở khóa phiếu mượn thành công!', 'success');
-    } catch (err: any) {
-      setUnlockModalError(err.message || 'Lỗi mở khóa');
-    }
+  const handleUnlockSubmit = async () => {
+    alert('Tính năng mở khóa phiếu đang được di chuyển sang Google Sheets V4 API');
   };
 
-  const handleToggleRoomPermission = (teacherId: string, roomId: string, currentStatus: boolean) => {
-    if (!actor) return;
-    try {
-      localEngine.adminRoomPermission(actor, teacherId, roomId, currentStatus ? 'INACTIVE' : 'ACTIVE');
-      triggerRefresh();
-      showToast('Đã cập nhật quyền phòng cho giáo viên', 'success');
-    } catch (err: any) {
-      showToast(err.message || 'Lỗi phân quyền', 'error');
-    }
+  const handleToggleRoomPermission = async (teacherId: string, roomId: string, currentStatus: boolean) => {
+    alert('Tính năng phân quyền đang được di chuyển sang Google Sheets V4 API');
   };
 
   const handleRunDiagnostics = () => {
-    const res = localEngine.getDiagnostics();
-    setDiagResult(res);
+    alert('Tính năng chẩn đoán toàn vẹn dữ liệu đang được di chuyển sang Google Sheets V4 API');
   };
 
   // Filtered equipment
@@ -945,15 +900,9 @@ export const AdminDashboard: React.FC = () => {
               <button
                 onClick={() => {
                   if (!actor) return;
-                  try {
-                    localEngine.adminUpdateEquipment(actor, editEquipment);
-                    setEditEquipment(null);
-                    setEditModalError('');
-                    triggerRefresh();
-                    showToast('Đã lưu cập nhật thiết bị thành công!', 'success');
-                  } catch (err: any) {
-                    setEditModalError(err.message || 'Lỗi cập nhật');
-                  }
+                  alert('Tính năng cập nhật thiết bị đang được di chuyển sang Google Sheets API V4');
+                  setEditEquipment(null);
+                  setEditModalError('');
                 }}
                 className="flex-1 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400"
               >

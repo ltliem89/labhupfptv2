@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { localEngine } from '../../services/api';
+import { useData } from '../../context/DataContext';
 import {
   PackagePlus,
   Clock,
@@ -32,14 +32,14 @@ export const TeacherHome: React.FC<TeacherHomeProps> = ({
   onGoToHistory,
   onGoToReport,
 }) => {
-  const { actor, role, refreshTrigger } = useAuth();
+  const { actor, role } = useAuth();
+  const { dashboardData, rooms: allRooms } = useData();
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [selectedBorrow, setSelectedBorrow] = useState<BorrowRecord | null>(null);
 
-  if (!actor) return null;
+  if (!actor || !dashboardData) return null;
 
-  const dashboardData = localEngine.getMyDashboard(actor);
-  const rooms = localEngine.getRooms().filter(r => actor.room_ids.includes(r.room_id));
+  const rooms = allRooms.filter(r => actor.room_ids.includes(r.room_id));
 
   return (
     <div className="space-y-5 pb-20 animate-in fade-in duration-200">
@@ -71,7 +71,6 @@ export const TeacherHome: React.FC<TeacherHomeProps> = ({
               key={room.room_id}
               className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-slate-800 text-amber-400 border border-slate-700 flex items-center gap-1"
             >
-              <span>{room.icon}</span>
               <span>{room.room_code}</span>
             </span>
           ))}
@@ -135,7 +134,7 @@ export const TeacherHome: React.FC<TeacherHomeProps> = ({
             </div>
           </div>
           <div className="mt-2 text-2xl font-black text-white">
-            {dashboardData.counts.total_devices_holding}
+            {dashboardData.counts.total_devices_holding || 0}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">Tổng số lượng giữ</div>
         </div>
@@ -181,7 +180,7 @@ export const TeacherHome: React.FC<TeacherHomeProps> = ({
             </div>
           </div>
           <div className="mt-2 text-2xl font-black text-white">
-            {dashboardData.counts.current_month_records}
+            {dashboardData.counts.current_month_records || dashboardData.counts.total_borrow_records}
           </div>
           <div className="text-[11px] text-slate-400 mt-1">Lượt mượn tháng này</div>
         </div>
@@ -243,8 +242,7 @@ export const TeacherHome: React.FC<TeacherHomeProps> = ({
           </div>
         ) : (
           <div className="space-y-2.5">
-            {dashboardData.active_borrows.map(record => {
-              const room = rooms.find(r => r.room_id === record.room_id);
+            {dashboardData.active_borrows.map((record: any) => {
               return (
                 <div
                   key={record.borrow_id}
@@ -272,15 +270,6 @@ export const TeacherHome: React.FC<TeacherHomeProps> = ({
                         {record.note || 'Phiếu mượn thực hành'}
                       </p>
                     </div>
-
-                    <div className="text-right shrink-0">
-                      <span className="text-xs font-bold text-amber-400">
-                        {record.total_quantity} thiết bị
-                      </span>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        {record.duration_label}
-                      </div>
-                    </div>
                   </div>
 
                   <div className="mt-3 pt-2.5 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
@@ -298,12 +287,10 @@ export const TeacherHome: React.FC<TeacherHomeProps> = ({
         )}
       </div>
 
-      {/* Equipment Request Modal */}
       {showRequestModal && (
         <EquipmentRequestModal onClose={() => setShowRequestModal(false)} />
       )}
 
-      {/* Slip Detail Modal */}
       {selectedBorrow && (
         <BorrowDetailModal
           borrow={selectedBorrow}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { localEngine } from '../../services/api';
+import { useData } from '../../context/DataContext';
 import { BorrowRecord } from '../../types';
 import {
   Clock,
@@ -15,14 +15,14 @@ import {
 import { BorrowDetailModal } from './BorrowDetailModal';
 
 export const ActiveBorrowReturn: React.FC = () => {
-  const { actor, refreshTrigger } = useAuth();
+  const { actor } = useAuth();
+  const { rooms, dashboardData } = useData();
   const [selectedBorrow, setSelectedBorrow] = useState<BorrowRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  if (!actor) return null;
+  if (!actor || !dashboardData) return null;
 
-  const dashboard = localEngine.getMyDashboard(actor);
-  const activeBorrows = dashboard.active_borrows.filter(r => {
+  const activeBorrows = dashboardData.active_borrows.filter((r: any) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -31,8 +31,6 @@ export const ActiveBorrowReturn: React.FC = () => {
       r.room_id.toLowerCase().includes(q)
     );
   });
-
-  const rooms = localEngine.getRooms();
 
   return (
     <div className="space-y-4 pb-24 animate-in fade-in duration-200">
@@ -52,13 +50,13 @@ export const ActiveBorrowReturn: React.FC = () => {
         <div>
           <span className="text-xs text-slate-400 font-medium">Đang mượn:</span>
           <div className="text-xl font-extrabold text-white mt-0.5">
-            {dashboard.counts.active_borrow_records} phiếu ({dashboard.counts.total_devices_holding} thiết bị)
+            {dashboardData.counts.active_borrow_records} phiếu ({dashboardData.counts.total_devices_holding || 0} thiết bị)
           </div>
         </div>
-        {dashboard.counts.overdue_records > 0 && (
+        {dashboardData.counts.overdue_records > 0 && (
           <div className="px-2.5 py-1 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/40 text-xs font-bold flex items-center gap-1.5 animate-pulse">
             <AlertTriangle className="w-4 h-4 text-rose-400" />
-            <span>{dashboard.counts.overdue_records} quá ngày</span>
+            <span>{dashboardData.counts.overdue_records} quá ngày</span>
           </div>
         )}
       </div>

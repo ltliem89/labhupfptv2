@@ -1,7 +1,7 @@
 import React from 'react';
 import { Home, PackagePlus, RefreshCw, ClipboardList, Shield, User, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { localEngine, isBorrowOverdue } from '../../services/api';
+import { useData } from '../../context/DataContext';
 
 export type NavTab = 'home' | 'borrow' | 'active' | 'history' | 'admin' | 'profile';
 
@@ -11,17 +11,15 @@ interface BottomNavProps {
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onChangeTab }) => {
-  const { actor, role, refreshTrigger } = useAuth();
+  const { actor, role } = useAuth();
+  const { dashboardData } = useData();
 
   // Calculate badges
-  const borrows = localEngine.getBorrowRecords();
-  const myBorrows = actor ? borrows.filter(r => r.teacher_id === actor.teacher_id) : [];
-  const activeMyBorrows = myBorrows.filter(r => r.status === 'BORROWED' || r.status === 'PARTIAL_RETURN');
-  const overdueCount = activeMyBorrows.filter(isBorrowOverdue).length;
+  const activeMyBorrows = dashboardData?.active_borrows || [];
+  const overdueCount = dashboardData?.counts?.overdue_records || 0;
+  
+  const pendingRequestsCount = role === 'ADMIN' && dashboardData?.counts?.pending_requests ? dashboardData.counts.pending_requests : 0;
 
-  const pendingRequestsCount = role === 'ADMIN'
-    ? localEngine.getEquipmentRequests().filter(r => r.status === 'PENDING').length
-    : 0;
 
   const tabs: Array<{
     id: NavTab;

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { localEngine } from '../../services/api';
+import { useData } from '../../context/DataContext';
+import { ApiService } from '../../services/api';
 import {
   X,
   Clock,
@@ -28,7 +29,8 @@ export const BorrowDetailModal: React.FC<BorrowDetailModalProps> = ({
   onClose,
   onReturned,
 }) => {
-  const { actor, role, triggerRefresh } = useAuth();
+  const { actor } = useAuth();
+  const { rooms: allRooms, subjects, classes, topics, lessons, refreshData } = useData();
 
   // Return form state
   const [isReturning, setIsReturning] = useState(false);
@@ -58,22 +60,20 @@ export const BorrowDetailModal: React.FC<BorrowDetailModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const room = localEngine.getRooms().find(r => r.room_id === borrow.room_id);
-  const subject = localEngine.getSubjects().find(s => s.subject_id === borrow.subject_id);
-  const classRoom = localEngine.getClasses().find(c => c.class_id === borrow.class_id);
-  const topic = localEngine.getTopics().find(t => t.topic_id === borrow.topic_id);
-  const lesson = localEngine.getLessons().find(l => l.lesson_id === borrow.lesson_id);
+  const room = allRooms.find(r => r.room_id === borrow.room_id);
+  const subject = subjects.find(s => s.subject_id === borrow.subject_id);
+  const classRoom = classes.find(c => c.class_id === borrow.class_id);
+  const topic = topics.find(t => t.topic_id === borrow.topic_id);
+  const lesson = lessons.find(l => l.lesson_id === borrow.lesson_id);
 
   const canReturn = borrow.status !== 'RETURNED';
 
-  const handleReturnSubmit = () => {
+  const handleReturnSubmit = async () => {
     if (!actor) return;
     setIsSubmitting(true);
     setErrorMsg('');
 
     try {
-      const clientRequestId = `ret-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-
       const itemsPayload = (borrow.items || []).map(item => {
         if (returnMode === 'whole') {
           return {
@@ -93,14 +93,13 @@ export const BorrowDetailModal: React.FC<BorrowDetailModalProps> = ({
         }
       });
 
-      localEngine.returnBorrow(actor, {
+      await ApiService.returnBorrow(actor, {
         borrow_id: borrow.borrow_id,
-        client_request_id: clientRequestId,
         items: itemsPayload,
         reason: returnNote || (returnMode === 'whole' ? 'Trả toàn bộ thiết bị' : 'Trả thiết bị có kiểm tra sự cố'),
       });
 
-      triggerRefresh();
+      await refreshData();
       onReturned();
     } catch (err: any) {
       setErrorMsg(err.message || 'Lỗi khi hoàn trả thiết bị');

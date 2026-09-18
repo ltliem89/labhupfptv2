@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { localEngine } from '../../services/api';
+import { useData } from '../../context/DataContext';
+import { isBorrowOverdue, calculateDuration } from '../../services/api';
 import {
   FileText,
   Calendar,
@@ -14,16 +15,16 @@ import {
 } from 'lucide-react';
 
 export const PersonalReport: React.FC = () => {
-  const { actor, refreshTrigger } = useAuth();
+  const { actor } = useAuth();
+  const { dashboardData, rooms } = useData();
   const [period, setPeriod] = useState<'WEEK' | 'MONTH' | 'YEAR' | 'CUSTOM'>('MONTH');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
-  if (!actor) return null;
+  if (!actor || !dashboardData) return null;
 
-  // Filter records based on period
   const filteredRecords = useMemo(() => {
-    const all = localEngine.getBorrowRecords().filter(r => r.teacher_id === actor.teacher_id);
+    const all = dashboardData.all_records || [];
     const now = new Date();
 
     let start = '';
@@ -46,23 +47,30 @@ export const PersonalReport: React.FC = () => {
       end = toDate;
     }
 
-    const res = all.filter(r => {
+    const res = all.filter((r: any) => {
       const dateStr = (r.borrowed_at || '').slice(0, 10);
       if (start && dateStr < start) return false;
       if (end && dateStr > end) return false;
       return true;
     });
 
-    return res.map(r => localEngine.decorateBorrowRecord(r, actor));
-  }, [actor, period, fromDate, toDate, refreshTrigger]);
+    return res.map((r: any) => {
+      const items = r.items || [];
+      const total = items.reduce((acc: number, cur: any) => acc + Number(cur.quantity), 0);
+      return {
+        ...r,
+        overdue: isBorrowOverdue(r),
+        duration_label: calculateDuration(r.borrowed_at, r.returned_at).label,
+        total_quantity: total,
+      };
+    });
+  }, [dashboardData, period, fromDate, toDate]);
 
   const totalSlips = filteredRecords.length;
-  const returnedSlips = filteredRecords.filter(r => r.status === 'RETURNED').length;
-  const activeSlips = filteredRecords.filter(r => r.status === 'BORROWED' || r.status === 'PARTIAL_RETURN').length;
-  const overdueSlips = filteredRecords.filter(r => r.overdue).length;
-  const totalEquipments = filteredRecords.reduce((sum, r) => sum + (r.total_quantity || 0), 0);
-
-  const rooms = localEngine.getRooms();
+  const returnedSlips = filteredRecords.filter((r: any) => r.status === 'RETURNED').length;
+  const activeSlips = filteredRecords.filter((r: any) => r.status === 'BORROWED' || r.status === 'PARTIAL_RETURN').length;
+  const overdueSlips = filteredRecords.filter((r: any) => r.overdue).length;
+  const totalEquipments = filteredRecords.reduce((sum: number, r: any) => sum + (r.total_quantity || 0), 0);
 
   const handlePrint = () => {
     window.print();
