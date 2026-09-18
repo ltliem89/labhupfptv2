@@ -1,0 +1,6 @@
+{
+  "name": "LAB HUB FPT",
+  "description": "Ứng dụng mobile-first quản lý thiết bị phòng học và phòng thí nghiệm LAB HUB V4",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
