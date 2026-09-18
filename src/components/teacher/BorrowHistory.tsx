@@ -111,7 +111,7 @@ export const BorrowHistory: React.FC = () => {
             <p className="text-xs mt-1">Hãy thử thay đổi từ khóa hoặc bộ lọc trạng thái.</p>
           </div>
         ) : (
-          filteredRecords.map(record => {
+          filteredRecords.map((record: any) => {
             const room = rooms.find(r => r.room_id === record.room_id);
             return (
               <div

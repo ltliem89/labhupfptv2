@@ -496,7 +496,7 @@ export const AdminDashboard: React.FC = () => {
           </h2>
 
           <div className="space-y-2.5">
-            {allBorrows.map(record => {
+            {allBorrows.map((record: any) => {
               const teacher = teachers.find(t => t.teacher_id === record.teacher_id);
               const room = rooms.find(r => r.room_id === record.room_id);
               const isLocked = record.edit_state === 'LOCKED';

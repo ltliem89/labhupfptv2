@@ -25,7 +25,7 @@ interface BorrowWizardProps {
 }
 
 export const BorrowWizard: React.FC<BorrowWizardProps> = ({ onFinish, onCancel }) => {
-  const { actor, role, refreshTrigger } = useAuth();
+  const { actor, role } = useAuth();
   const { rooms: allRooms, subjects: allSubjects, classes: allClasses, topics: allTopics, lessons: allLessons, equipment: allEquipment, topicEquipment } = useData();
 
   const [step, setStep] = useState<number>(1);

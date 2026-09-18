@@ -178,7 +178,7 @@ export const PersonalReport: React.FC = () => {
               Không có dữ liệu trong khoảng thời gian đã chọn.
             </div>
           ) : (
-            filteredRecords.map(record => {
+            filteredRecords.map((record: any) => {
               const room = rooms.find(r => r.room_id === record.room_id);
               return (
                 <div

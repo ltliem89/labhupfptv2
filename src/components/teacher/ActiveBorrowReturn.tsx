@@ -82,7 +82,7 @@ export const ActiveBorrowReturn: React.FC = () => {
             <p className="text-xs mt-1">Tất cả thiết bị đã được hoàn trả đầy đủ vào kho.</p>
           </div>
         ) : (
-          activeBorrows.map(record => {
+          activeBorrows.map((record: any) => {
             const room = rooms.find(r => r.room_id === record.room_id);
             return (
               <div
